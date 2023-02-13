@@ -55,7 +55,7 @@ class AuthAPI {
     this.listen = (fn) => {
       this.on_auth_update = fn;
     };
-    this.storage = new LocalStorageStore("___tensei__session___");
+    this.storage = new LocalStorageStore("___tensei__session___","android");
   }
   async loadExistingSession() {
     if (this.usesRefreshTokens()) {
