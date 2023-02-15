@@ -1,5 +1,6 @@
 import Axios from 'axios'
 import { AuthAPI, LocalStorageStore } from '../src/auth'
+import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 
 test('can login with email and password authentication', async () => {
   const instance = Axios.create({})

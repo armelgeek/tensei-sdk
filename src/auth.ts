@@ -1,6 +1,6 @@
 import { AxiosInstance } from 'axios'
+import { getData, removeData, setData } from './storage'
 import { SdkOptions } from './config'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 export interface LoginCustomerInput {
   email: string
   password: string
@@ -66,31 +66,25 @@ function getUrlParameter(name: string) {
 }
 
 export class LocalStorageStore implements TokenStorage {
-  public target: any
-  constructor(public name: string,public os?: string) {
-   this.target = os == 'android' ? AsyncStorage: localStorage;
+  constructor(public name: string) {
   }
 
   set<T>(value: T) {
-    this.target.setItem(this.name, JSON.stringify(value))
+    setData(this.name, JSON.stringify(value));
   }
 
   get<T>() {
-    try {
-      return JSON.parse(this.target.getItem(this.name) || '') as T
-    } catch (error) {
-      return null
-    }
+   return getData(this.name) as any;
   }
 
   clear() {
-    return this.target.removeItem(this.name)
+    return removeData(this.name)
   }
 }
 
-function isBrowser() {
+/**function isBrowser() {
   return typeof window !== 'undefined' && typeof window.document !== 'undefined'
-}
+}**/
 
 function getLocation(href: string) {
   var match = href.match(
@@ -204,9 +198,9 @@ export class AuthAPI {
   }
 
   async silentLogin() {
-    if (!isBrowser()) {
+    /**if (!isBrowser()) {
       return
-    }
+    }**/
 
     const session = this.storage.get<TokenStorageValue>()
 
@@ -246,9 +240,9 @@ export class AuthAPI {
   private authenticateWithAccessTokens() {
     this.setAuthorizationHeader()
 
-    if (!isBrowser()) {
+    /**if (!isBrowser()) {
       return
-    }
+    }**/
 
     if (!this.usesAccessTokens()) {
       return
@@ -279,9 +273,9 @@ export class AuthAPI {
       return
     }
 
-    if (!isBrowser()) {
+    /**if (!isBrowser()) {
       return
-    }
+    }**/
 
     // if refresh tokens are not turned on on the API:
     if (!this.auth_response?.refreshToken || !this.auth_response?.accessToken) {
@@ -335,9 +329,9 @@ export class AuthAPI {
       clearInterval(this.session_interval)
     }
 
-    if (isBrowser()) {
+    //if (isBrowser()) {
       this.storage.clear()
-    }
+    //}
 
     this.auth_response = undefined
     this.invokeAuthChange()
@@ -405,7 +399,7 @@ export class AuthAPI {
 
     const key = this.getUserKey()
 
-    ;(this.auth_response as any)[key] = user[key] ? user[key] : user
+      ; (this.auth_response as any)[key] = user[key] ? user[key] : user
 
     this.invokeAuthChange()
   }

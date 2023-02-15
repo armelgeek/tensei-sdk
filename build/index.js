@@ -11,6 +11,80 @@ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'defau
 const Axios__default = /*#__PURE__*/_interopDefaultLegacy(Axios);
 const AsyncStorage__default = /*#__PURE__*/_interopDefaultLegacy(AsyncStorage);
 
+const partKeyPrefix = "@___PART___";
+const partKeyPrefixRxp = /^@___PART___/;
+const keySplit = ",";
+const limit = 5e5;
+const buildData = (key, value, datas) => {
+  let valueStr = JSON.stringify(value);
+  if (valueStr.length <= limit)
+    return datas.push([key, valueStr]);
+  const partKeys = [];
+  for (let i = 0, len = Math.floor(valueStr.length / limit); i <= len; i++) {
+    let partKey = `${partKeyPrefix}${key}${i}`;
+    partKeys.push(partKey);
+    datas.push([partKey, valueStr.substring(i * limit, (i + 1) * limit)]);
+  }
+  datas.push([key, `${partKeyPrefix}${partKeys.join(keySplit)}`]);
+  return datas;
+};
+const handleGetData = (partKeys) => {
+  partKeys = partKeys.replace(partKeyPrefixRxp, "").split(keySplit);
+  return AsyncStorage__default["default"].multiGet(partKeys).then((datas) => {
+    return JSON.parse(datas.map((data) => data[1]).join(""));
+  });
+};
+const setData = async (key, value) => {
+  const datas = [];
+  buildData(key, value, datas);
+  try {
+    await AsyncStorage__default["default"].multiSet(datas);
+  } catch (e) {
+    console.log(e.message);
+    throw e;
+  }
+};
+const getData = async (key) => {
+  let value;
+  try {
+    value = await AsyncStorage__default["default"].getItem(key);
+  } catch (e) {
+    console.log(e.message);
+    throw e;
+  }
+  if (partKeyPrefixRxp.test(value)) {
+    return handleGetData(value);
+  } else if (value)
+    value = JSON.parse(value);
+  return value;
+};
+const removeData = async (key) => {
+  let value;
+  try {
+    value = await AsyncStorage__default["default"].getItem(key);
+  } catch (e) {
+    console.log(e.message);
+    throw e;
+  }
+  if (partKeyPrefixRxp.test(value)) {
+    let partKeys = value.replace(partKeyPrefixRxp, "").split(keySplit);
+    partKeys.push(key);
+    try {
+      await AsyncStorage__default["default"].multiRemove(partKeys);
+    } catch (e) {
+      console.log(e.message);
+      throw e;
+    }
+  } else {
+    try {
+      await AsyncStorage__default["default"].removeItem(key);
+    } catch (e) {
+      console.log(e.message);
+      throw e;
+    }
+  }
+};
+
 function getUrlParameter(name) {
   name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
   var regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
@@ -18,27 +92,18 @@ function getUrlParameter(name) {
   return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
 }
 class LocalStorageStore {
-  constructor(name, os) {
+  constructor(name) {
     this.name = name;
-    this.os = os;
-    this.target = os == "android" ? AsyncStorage__default["default"] : localStorage;
   }
   set(value) {
-    this.target.setItem(this.name, JSON.stringify(value));
+    setData(this.name, JSON.stringify(value));
   }
   get() {
-    try {
-      return JSON.parse(this.target.getItem(this.name) || "");
-    } catch (error) {
-      return null;
-    }
+    return getData(this.name);
   }
   clear() {
-    return this.target.removeItem(this.name);
+    return removeData(this.name);
   }
-}
-function isBrowser() {
-  return typeof window !== "undefined" && typeof window.document !== "undefined";
 }
 function getLocation(href) {
   var match = href.match(/^(https?\:)\/\/(([^:\/?#]*)(?:\:([0-9]+))?)([\/]{0,1}[^?#]*)(\?[^#]*|)(#.*|)$/);
@@ -117,9 +182,6 @@ class AuthAPI {
     return !((_a = this.options) == null ? void 0 : _a.refreshTokens);
   }
   async silentLogin() {
-    if (!isBrowser()) {
-      return;
-    }
     const session = this.storage.get();
     if (!session || !this.isRefreshSessionValid(session)) {
       return this.logout();
@@ -147,9 +209,6 @@ class AuthAPI {
   }
   authenticateWithAccessTokens() {
     this.setAuthorizationHeader();
-    if (!isBrowser()) {
-      return;
-    }
     if (!this.usesAccessTokens()) {
       return;
     }
@@ -169,9 +228,6 @@ class AuthAPI {
     var _a, _b;
     this.setAuthorizationHeader();
     if (!this.usesRefreshTokens()) {
-      return;
-    }
-    if (!isBrowser()) {
       return;
     }
     if (!((_a = this.auth_response) == null ? void 0 : _a.refreshToken) || !((_b = this.auth_response) == null ? void 0 : _b.accessToken)) {
@@ -210,9 +266,7 @@ class AuthAPI {
     if (this.session_interval) {
       clearInterval(this.session_interval);
     }
-    if (isBrowser()) {
-      this.storage.clear();
-    }
+    this.storage.clear();
     this.auth_response = void 0;
     this.invokeAuthChange();
     delete this.instance.defaults.headers.common["Authorization"];
